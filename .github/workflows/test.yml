@@ -24,7 +24,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          tag="$(curl -fsSL https://api.github.com/repos/jksy/imagemagick-build/releases/latest | jq -r '.tag_name')"
+          tag="$(
+            curl -fsSL \
+              -H "Authorization: Bearer ${{ github.token }}" \
+              -H "Accept: application/vnd.github+json" \
+              -H "User-Agent: setup-imagemagick-test" \
+              https://api.github.com/repos/jksy/imagemagick-build/releases/latest |
+            jq -r '.tag_name'
+          )"
+          if [[ -z "$tag" || "$tag" == "null" ]]; then
+            echo "::error::Failed to resolve latest release tag from jksy/imagemagick-build"
+            exit 1
+          fi
           echo "version=${tag#v}" >>"$GITHUB_OUTPUT"
 
       - name: Setup ImageMagick
