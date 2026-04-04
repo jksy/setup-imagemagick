@@ -172,6 +172,7 @@ FAIL_IF_MISSING="${INPUT_FAIL_IF_MISSING:-true}"
 ARCH_LABEL="$(require_linux_x86_64)"
 UBUNTU_LABEL="$(detect_ubuntu_label)"
 ASSET_NAME="imagemagick-${VERSION}-${UBUNTU_LABEL}-${ARCH_LABEL}-${VARIANT}.tar.gz"
+ASSET_NAME_NO_VARIANT="imagemagick-${VERSION}-${UBUNTU_LABEL}-${ARCH_LABEL}.tar.gz"
 BASE_URL="${IMAGEMAGICK_RELEASE_BASE_URL:-https://github.com/jksy/imagemagick-build/releases/download}"
 
 if [[ "$VERSION" == v* ]]; then
@@ -191,29 +192,33 @@ cleanup() {
 trap cleanup EXIT
 
 selected_url=""
+selected_asset_name=""
 asset_found="false"
 
 for tag in "${TAG_CANDIDATES[@]}"; do
-  url="$BASE_URL/$tag/$ASSET_NAME"
-  echo "::notice::Trying $url"
-  http_code="$(download_http_code "$url" "$archive_path")"
+  for candidate_asset in "$ASSET_NAME" "$ASSET_NAME_NO_VARIANT"; do
+    url="$BASE_URL/$tag/$candidate_asset"
+    echo "::notice::Trying $url"
+    http_code="$(download_http_code "$url" "$archive_path")"
 
-  if [[ "$http_code" == "200" ]]; then
-    selected_url="$url"
-    asset_found="true"
-    break
-  fi
+    if [[ "$http_code" == "200" ]]; then
+      selected_url="$url"
+      selected_asset_name="$candidate_asset"
+      asset_found="true"
+      break 2
+    fi
 
-  if [[ "$http_code" != "404" ]]; then
-    echo "::error::Download failed for $url (HTTP $http_code)"
-    exit 1
-  fi
+    if [[ "$http_code" != "404" ]]; then
+      echo "::error::Download failed for $url (HTTP $http_code)"
+      exit 1
+    fi
+  done
 
 done
 
 if [[ "$asset_found" != "true" ]]; then
   if is_true "$FAIL_IF_MISSING"; then
-    echo "::error::Release asset not found: $ASSET_NAME"
+    echo "::error::Release asset not found: $ASSET_NAME or $ASSET_NAME_NO_VARIANT"
     exit 1
   fi
 
@@ -223,6 +228,7 @@ if [[ "$asset_found" != "true" ]]; then
 fi
 
 echo "::notice::Downloading asset from $selected_url"
+echo "::notice::Selected asset: $selected_asset_name"
 
 validate_archive_paths "$archive_path"
 extract_dir="$(mktemp -d -t imagemagick-extract-XXXXXX)"
@@ -257,4 +263,4 @@ log_rpath_related_info "$INSTALL_PREFIX/lib"
 append_env_if_requested "$INSTALL_PREFIX" "$ADD_TO_PATH" "$EXPORT_ENV"
 emit_outputs "$INSTALL_PREFIX" "$MAGICK_PATH"
 
-"$MAGICK_PATH" -version
+LD_LIBRARY_PATH="$INSTALL_PREFIX/lib:${LD_LIBRARY_PATH:-}" "$MAGICK_PATH" -version

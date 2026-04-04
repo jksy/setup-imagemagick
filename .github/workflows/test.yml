@@ -78,4 +78,4 @@ jobs:
           echo 'gem "rmagick"' >> Gemfile
           bundle config set path vendor/bundle
           bundle install
-          ruby -e 'require "rmagick"; puts Magick::Magick_version'
+          bundle exec ruby -e 'require "rmagick"; puts Magick::Magick_version'
