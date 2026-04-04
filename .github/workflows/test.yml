@@ -84,6 +84,66 @@ jobs:
           set -euo pipefail
           magick -list format | grep -E "JPEG|PNG|WEBP|AVIF"
 
+      - name: Check image export for multiple formats
+        shell: bash
+        run: |
+          set -euo pipefail
+          workdir="$(mktemp -d)"
+          cd "$workdir"
+
+          magick -size 64x64 gradient: input.png
+          magick input.png output.jpg
+          magick input.png output.webp
+          magick input.png output.avif
+
+          test -s output.jpg
+          test -s output.webp
+          test -s output.avif
+
+      - name: Check PDF to PNG conversion
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v gs
+
+          workdir="$(mktemp -d)"
+          cd "$workdir"
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          lines = [
+              b"%PDF-1.4\n",
+              b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
+              b"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
+              b"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Contents 4 0 R >>\nendobj\n",
+              b"4 0 obj\n<< /Length 37 >>\nstream\nBT /F1 24 Tf 30 100 Td (Hello PDF) Tj ET\nendstream\nendobj\n",
+              b"5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n",
+          ]
+
+          body = bytearray()
+          offsets = [0]
+          for chunk in lines[1:]:
+              offsets.append(len(body) + len(lines[0]))
+              body.extend(chunk)
+
+          xref_start = len(lines[0]) + len(body)
+          xref = [b"xref\n0 6\n", b"0000000000 65535 f \n"]
+          for offset in offsets[1:]:
+              xref.append(f"{offset:010d} 00000 n \n".encode())
+
+          trailer = (
+              b"trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n"
+              + str(xref_start).encode()
+              + b"\n%%EOF\n"
+          )
+
+          Path("input.pdf").write_bytes(lines[0] + body + b"".join(xref) + trailer)
+          PY
+
+          magick input.pdf[0] output.png
+          test -s output.png
+
       - name: Check pkg-config
         shell: bash
         run: |
