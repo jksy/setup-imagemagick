@@ -58,6 +58,7 @@ This repository includes `.github/workflows/test.yml`, which validates:
   - `gem "rmagick"` in `Gemfile`
   - `bundle install`
   - `ruby -e 'require "rmagick"; puts Magick::Magick_version'`
+  - PDF (`input-rmagick.pdf`) to PNG conversion via RMagick
 
 ## Quick verification in workflow
 
