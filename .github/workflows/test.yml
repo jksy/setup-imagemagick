@@ -84,6 +84,45 @@ jobs:
           set -euo pipefail
           magick -list format | grep -E "JPEG|PNG|WEBP|AVIF"
 
+      - name: Check image export for multiple formats
+        shell: bash
+        run: |
+          set -euo pipefail
+          workdir="$(mktemp -d)"
+          trap 'rm -rf "$workdir"' EXIT
+          cd "$workdir"
+
+          magick -size 64x64 gradient: input.png
+          magick input.png output.jpg
+          magick input.png output.webp
+          magick input.png output.avif
+
+          test -s output.jpg
+          test -s output.webp
+          test -s output.avif
+
+      - name: Install Ghostscript
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y ghostscript
+
+      - name: Check PDF to PNG conversion
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v gs
+
+          workdir="$(mktemp -d)"
+          trap 'rm -rf "$workdir"' EXIT
+          cd "$workdir"
+
+          python3 "${GITHUB_WORKSPACE}/.github/scripts/generate-test-pdf.py" input.pdf
+
+          magick input.pdf[0] output.png
+          test -s output.png
+
       - name: Check pkg-config
         shell: bash
         run: |
@@ -101,9 +140,12 @@ jobs:
         run: |
           set -euo pipefail
           workdir="$(mktemp -d)"
+          trap 'rm -rf "$workdir"' EXIT
           cd "$workdir"
           bundle init
           echo 'gem "rmagick"' >> Gemfile
           bundle config set path vendor/bundle
           bundle install
           bundle exec ruby -e 'require "rmagick"; puts Magick::Magick_version'
+          python3 "${GITHUB_WORKSPACE}/.github/scripts/generate-test-pdf.py" input-rmagick.pdf
+          bundle exec ruby -e 'require "rmagick"; img = Magick::Image.read("input-rmagick.pdf[0]").first; img.write("output-rmagick.png"); raise "empty output-rmagick.png" unless File.size?("output-rmagick.png")'

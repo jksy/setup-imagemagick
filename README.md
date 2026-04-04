@@ -50,12 +50,15 @@ This repository includes `.github/workflows/test.yml`, which validates:
 
 - `magick -version`
 - `magick -list format | grep -E "JPEG|PNG|WEBP|AVIF"`
+- image export to `JPG` / `WEBP` / `AVIF`
+- `ghostscript` installation and `gs` availability, then PDF (`input.pdf`) to PNG conversion
 - `pkg-config --modversion MagickCore`
 - RMagick installation and load:
   - `bundle init`
   - `gem "rmagick"` in `Gemfile`
   - `bundle install`
   - `ruby -e 'require "rmagick"; puts Magick::Magick_version'`
+  - PDF (`input-rmagick.pdf`) to PNG conversion via RMagick
 
 ## Quick verification in workflow
 
