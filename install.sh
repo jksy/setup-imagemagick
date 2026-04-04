@@ -91,7 +91,7 @@ download_http_code() {
   local code
 
   if [[ -n "${INPUT_GITHUB_TOKEN:-}" ]]; then
-    if [[ "${INPUT_GITHUB_TOKEN:-}" =~ [$'\r\n'] ]]; then
+    if [[ "${INPUT_GITHUB_TOKEN:-}" == *$'\n'* || "${INPUT_GITHUB_TOKEN:-}" == *$'\r'* ]]; then
       echo "::error::github-token contains invalid newline characters" >&2
       exit 1
     fi
@@ -115,10 +115,10 @@ rewrite_pkgconfig_prefix() {
   escaped="$prefix"
   escaped="${escaped//\\/\\\\}"
   escaped="${escaped//&/\\&}"
-  escaped="${escaped//|/\\|}"
+  escaped="${escaped//#/\\#}"
 
   while IFS= read -r -d '' pc_file; do
-    sed -i "s|$ORIGINAL_PREFIX|$escaped|g" "$pc_file"
+    sed -i "s#$ORIGINAL_PREFIX#$escaped#g" "$pc_file"
   done < <(find "$pkg_dir" -type f -name '*.pc' -print0)
 }
 
