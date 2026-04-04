@@ -46,6 +46,19 @@ Install prebuilt ImageMagick binaries from [jksy/imagemagick-build releases](htt
   - `PKG_CONFIG_PATH=<prefix>/lib/pkgconfig:$PKG_CONFIG_PATH` (when `export-env=true`)
   - `LD_LIBRARY_PATH=<prefix>/lib:$LD_LIBRARY_PATH` (when `export-env=true`)
 
+## Verification in CI
+
+This repository includes `/home/runner/work/setup-imagemagick/setup-imagemagick/.github/workflows/test.yml`, which validates:
+
+- `magick -version`
+- `magick -list format | grep -E "JPEG|PNG|WEBP|AVIF"`
+- `pkg-config --modversion MagickCore`
+- RMagick installation and load:
+  - `bundle init`
+  - `gem "rmagick"` in `Gemfile`
+  - `bundle install`
+  - `ruby -e 'require "rmagick"; puts Magick::Magick_version'`
+
 ## Quick verification in workflow
 
 ```yaml

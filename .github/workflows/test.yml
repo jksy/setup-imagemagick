@@ -1,0 +1,70 @@
+name: test
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  setup-imagemagick:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve ImageMagick build version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="$(curl -fsSL https://api.github.com/repos/jksy/imagemagick-build/releases/latest | jq -r '.tag_name')"
+          echo "version=${tag#v}" >>"$GITHUB_OUTPUT"
+
+      - name: Setup ImageMagick
+        id: setup-imagemagick
+        uses: ./
+        with:
+          version: ${{ steps.version.outputs.version }}
+          github-token: ${{ github.token }}
+
+      - name: Check magick version
+        shell: bash
+        run: |
+          set -euo pipefail
+          magick -version
+
+      - name: Check formats
+        shell: bash
+        run: |
+          set -euo pipefail
+          magick -list format | grep -E "JPEG|PNG|WEBP|AVIF"
+
+      - name: Check pkg-config
+        shell: bash
+        run: |
+          set -euo pipefail
+          pkg-config --modversion MagickCore
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: false
+
+      - name: Check RMagick install
+        shell: bash
+        run: |
+          set -euo pipefail
+          workdir="$(mktemp -d)"
+          cd "$workdir"
+          bundle init
+          echo 'gem "rmagick"' >> Gemfile
+          bundle config set path vendor/bundle
+          bundle install
+          ruby -e 'require "rmagick"; puts Magick::Magick_version'
