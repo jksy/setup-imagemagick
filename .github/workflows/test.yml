@@ -89,6 +89,7 @@ jobs:
         run: |
           set -euo pipefail
           workdir="$(mktemp -d)"
+          trap 'rm -rf "$workdir"' EXIT
           cd "$workdir"
 
           magick -size 64x64 gradient: input.png
@@ -107,6 +108,7 @@ jobs:
           command -v gs
 
           workdir="$(mktemp -d)"
+          trap 'rm -rf "$workdir"' EXIT
           cd "$workdir"
 
           python3 - <<'PY'
