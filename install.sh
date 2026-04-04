@@ -70,6 +70,17 @@ emit_outputs() {
   } >>"$output_file"
 }
 
+validate_archive_paths() {
+  local archive="$1"
+  local bad_entries
+  bad_entries="$(tar -tzf "$archive" | grep -E '^/|(^|/)\.\.(/|$)' || true)"
+  if [[ -n "$bad_entries" ]]; then
+    echo "::error::Archive contains unsafe paths"
+    printf '%s\n' "$bad_entries"
+    exit 1
+  fi
+}
+
 append_env_if_requested() {
   local prefix="$1"
   local add_to_path="$2"
@@ -170,6 +181,15 @@ else
 fi
 
 archive_path="$(mktemp -t imagemagick-asset-XXXXXX.tar.gz)"
+extract_dir=""
+cleanup() {
+  rm -f "$archive_path"
+  if [[ -n "$extract_dir" ]]; then
+    rm -rf "$extract_dir"
+  fi
+}
+trap cleanup EXIT
+
 selected_url=""
 asset_found="false"
 
@@ -204,8 +224,9 @@ fi
 
 echo "::notice::Downloading asset from $selected_url"
 
+validate_archive_paths "$archive_path"
 extract_dir="$(mktemp -d -t imagemagick-extract-XXXXXX)"
-tar -xzf "$archive_path" -C "$extract_dir"
+tar --no-same-owner --no-same-permissions -xzf "$archive_path" -C "$extract_dir"
 
 source_root=""
 if [[ -x "$extract_dir/bin/magick" ]]; then
@@ -223,7 +244,7 @@ if [[ -z "$source_root" ]]; then
 fi
 
 mkdir -p "$INSTALL_PREFIX"
-tar -C "$source_root" -cf - . | tar -C "$INSTALL_PREFIX" -xf -
+tar --no-same-owner --no-same-permissions -C "$source_root" -cf - . | tar --no-same-owner --no-same-permissions -C "$INSTALL_PREFIX" -xf -
 
 MAGICK_PATH="$INSTALL_PREFIX/bin/magick"
 if [[ ! -x "$MAGICK_PATH" ]]; then
