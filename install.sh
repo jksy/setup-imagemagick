@@ -11,6 +11,10 @@ is_true() {
   [[ "$(to_lower "$1")" == "true" ]]
 }
 
+command_exists() {
+  command -v "$1" >/dev/null 2>&1
+}
+
 require_linux_x86_64() {
   local runner_os="${RUNNER_OS:-Linux}"
   if [[ "$runner_os" != "Linux" ]]; then
@@ -50,6 +54,32 @@ detect_ubuntu_label() {
 
   echo "::error::Unsupported Ubuntu version. Supported: ubuntu-22.04 / ubuntu-24.04" >&2
   exit 1
+}
+
+install_ghostscript_if_missing() {
+  if command_exists gs; then
+    echo "::notice::Ghostscript already available"
+    return
+  fi
+
+  if ! command_exists apt-get; then
+    echo "::error::Ghostscript is required for PDF conversion, but apt-get is unavailable" >&2
+    exit 1
+  fi
+
+  echo "::notice::Installing Ghostscript"
+  if command_exists sudo; then
+    sudo apt-get update
+    sudo apt-get install -y ghostscript
+  else
+    apt-get update
+    apt-get install -y ghostscript
+  fi
+
+  if ! command_exists gs; then
+    echo "::error::Ghostscript installation completed but gs command was not found" >&2
+    exit 1
+  fi
 }
 
 emit_outputs() {
@@ -255,6 +285,7 @@ fi
 
 rewrite_pkgconfig_prefix "$INSTALL_PREFIX"
 log_rpath_related_info "$INSTALL_PREFIX/lib"
+install_ghostscript_if_missing
 append_env_if_requested "$INSTALL_PREFIX" "$ADD_TO_PATH" "$EXPORT_ENV"
 emit_outputs "$INSTALL_PREFIX" "$MAGICK_PATH"
 

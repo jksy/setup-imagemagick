@@ -39,6 +39,7 @@ Install prebuilt ImageMagick binaries from [jksy/imagemagick-build releases](htt
 - Extracts into `install-prefix`
 - Rewrites `lib/pkgconfig/*.pc` from `/opt/imagemagick` to your `install-prefix`
 - Logs dynamic-link (`ldd`) check for `libMagickCore*.so*`
+- Installs `ghostscript` (when `gs` is missing) for PDF conversion support
 - Exports:
   - `PATH=<prefix>/bin:$PATH` (when `add-to-path=true`)
   - `PKG_CONFIG_PATH=<prefix>/lib/pkgconfig:$PKG_CONFIG_PATH` (when `export-env=true`)
@@ -51,7 +52,7 @@ This repository includes `.github/workflows/test.yml`, which validates:
 - `magick -version`
 - `magick -list format | grep -E "JPEG|PNG|WEBP|AVIF"`
 - image export to `JPG` / `WEBP` / `AVIF`
-- `ghostscript` installation and `gs` availability, then PDF (`input.pdf`) to PNG conversion
+- `gs` availability and PDF (`input.pdf`) to PNG conversion
 - `pkg-config --modversion MagickCore`
 - RMagick installation and load:
   - `bundle init`
