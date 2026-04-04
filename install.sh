@@ -213,7 +213,6 @@ for tag in "${TAG_CANDIDATES[@]}"; do
       exit 1
     fi
   done
-
 done
 
 if [[ "$asset_found" != "true" ]]; then

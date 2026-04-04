@@ -48,7 +48,7 @@ Install prebuilt ImageMagick binaries from [jksy/imagemagick-build releases](htt
 
 ## Verification in CI
 
-This repository includes `/home/runner/work/setup-imagemagick/setup-imagemagick/.github/workflows/test.yml`, which validates:
+This repository includes `.github/workflows/test.yml`, which validates:
 
 - `magick -version`
 - `magick -list format | grep -E "JPEG|PNG|WEBP|AVIF"`
