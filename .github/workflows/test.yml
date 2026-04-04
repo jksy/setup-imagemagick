@@ -14,6 +14,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-22.04, ubuntu-24.04]
+        use-custom-prefix: [false, true]
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -44,6 +45,32 @@ jobs:
         with:
           version: ${{ steps.version.outputs.version }}
           github-token: ${{ github.token }}
+          install-prefix: ${{ matrix.use-custom-prefix && format('{0}/imagemagick-custom', runner.temp) || '' }}
+
+      - name: Check install prefix output
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ matrix.use-custom-prefix }}" == "true" ]]; then
+            expected_prefix="${RUNNER_TEMP}/imagemagick-custom"
+          else
+            expected_prefix="${RUNNER_TEMP}/imagemagick"
+          fi
+
+          actual_prefix="${{ steps.setup-imagemagick.outputs.prefix }}"
+          actual_magick_path="${{ steps.setup-imagemagick.outputs.magick-path }}"
+          if [[ "$actual_prefix" != "$expected_prefix" ]]; then
+            echo "::error::Unexpected prefix. expected=$expected_prefix actual=$actual_prefix"
+            exit 1
+          fi
+
+          expected_magick_path="$expected_prefix/bin/magick"
+          if [[ "$actual_magick_path" != "$expected_magick_path" ]]; then
+            echo "::error::Unexpected magick path. expected=$expected_magick_path actual=$actual_magick_path"
+            exit 1
+          fi
+
+          test -x "$expected_magick_path"
 
       - name: Check magick version
         shell: bash
