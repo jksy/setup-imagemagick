@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+ORIGINAL_PREFIX="/opt/imagemagick"
+
 to_lower() {
   printf '%s' "$1" | tr '[:upper:]' '[:lower:]'
 }
@@ -89,6 +91,10 @@ download_http_code() {
   local code
 
   if [[ -n "${INPUT_GITHUB_TOKEN:-}" ]]; then
+    if [[ "${INPUT_GITHUB_TOKEN:-}" =~ [$'\r\n'] ]]; then
+      echo "::error::github-token contains invalid newline characters" >&2
+      exit 1
+    fi
     code="$(curl -sS -L --retry 3 --retry-delay 2 -H "Authorization: Bearer ${INPUT_GITHUB_TOKEN:-}" -o "$archive" -w "%{http_code}" "$url" || true)"
   else
     code="$(curl -sS -L --retry 3 --retry-delay 2 -o "$archive" -w "%{http_code}" "$url" || true)"
@@ -112,7 +118,7 @@ rewrite_pkgconfig_prefix() {
   escaped="${escaped//|/\\|}"
 
   while IFS= read -r -d '' pc_file; do
-    sed -i "s|/opt/imagemagick|$escaped|g" "$pc_file"
+    sed -i "s|$ORIGINAL_PREFIX|$escaped|g" "$pc_file"
   done < <(find "$pkg_dir" -type f -name '*.pc' -print0)
 }
 
@@ -137,8 +143,8 @@ log_rpath_related_info() {
   printf '%s\n' "$ldd_output"
   echo "::endgroup::"
 
-  if grep -q '/opt/imagemagick' <<<"$ldd_output"; then
-    echo "::warning::Detected /opt/imagemagick in ldd output. patchelf handling is not applied in this version."
+  if grep -q "$ORIGINAL_PREFIX" <<<"$ldd_output"; then
+    echo "::warning::Detected $ORIGINAL_PREFIX in ldd output. patchelf handling is not applied in this version."
   else
     echo "::notice::No /opt/imagemagick path detected in ldd output"
   fi
@@ -217,7 +223,7 @@ if [[ -z "$source_root" ]]; then
 fi
 
 mkdir -p "$INSTALL_PREFIX"
-cp -a "$source_root"/. "$INSTALL_PREFIX"/
+tar -C "$source_root" -cf - . | tar -C "$INSTALL_PREFIX" -xf -
 
 MAGICK_PATH="$INSTALL_PREFIX/bin/magick"
 if [[ ! -x "$MAGICK_PATH" ]]; then
