@@ -8,7 +8,6 @@ Install prebuilt ImageMagick binaries from [jksy/imagemagick-build releases](htt
 - uses: jksy/setup-imagemagick@v1
   with:
     version: "7.1.2-3"
-    variant: "avif-webp-pdf"
     install-prefix: "${{ runner.temp }}/imagemagick"
     add-to-path: true
     export-env: true
@@ -18,7 +17,6 @@ Install prebuilt ImageMagick binaries from [jksy/imagemagick-build releases](htt
 ## Inputs
 
 - `version` (required)
-- `variant` (default: `avif-webp-pdf`)
 - `install-prefix` (default: `${{ runner.temp }}/imagemagick`)
 - `add-to-path` (default: `true`)
 - `export-env` (default: `true`)
@@ -37,7 +35,7 @@ Install prebuilt ImageMagick binaries from [jksy/imagemagick-build releases](htt
 
 - Resolves runner OS/arch (`ubuntu-22.04` / `ubuntu-24.04`, `x86_64`)
 - Downloads release asset:
-  `imagemagick-${version}-ubuntu24.04-x86_64-${variant}.tar.gz`
+  `imagemagick-${version}-ubuntu24.04-x86_64.tar.gz`
 - Extracts into `install-prefix`
 - Rewrites `lib/pkgconfig/*.pc` from `/opt/imagemagick` to your `install-prefix`
 - Logs dynamic-link (`ldd`) check for `libMagickCore*.so*`
