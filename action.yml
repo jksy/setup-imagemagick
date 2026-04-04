@@ -6,10 +6,6 @@ inputs:
   version:
     description: "ImageMagick build version"
     required: true
-  variant:
-    description: "Build variant"
-    required: false
-    default: "avif-webp-pdf"
   install-prefix:
     description: "Install destination prefix"
     required: false
@@ -55,7 +51,6 @@ runs:
       shell: bash
       env:
         INPUT_VERSION: ${{ inputs.version }}
-        INPUT_VARIANT: ${{ inputs.variant }}
         INPUT_INSTALL_PREFIX: ${{ inputs.install-prefix }}
         INPUT_ADD_TO_PATH: ${{ inputs.add-to-path }}
         INPUT_EXPORT_ENV: ${{ inputs.export-env }}

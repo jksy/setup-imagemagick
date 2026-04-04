@@ -162,7 +162,6 @@ log_rpath_related_info() {
 }
 
 VERSION="${INPUT_VERSION:?INPUT_VERSION is required}"
-VARIANT="${INPUT_VARIANT:-avif-webp-pdf}"
 DEFAULT_PREFIX="${RUNNER_TEMP:-/tmp}/imagemagick"
 INSTALL_PREFIX="${INPUT_INSTALL_PREFIX:-$DEFAULT_PREFIX}"
 ADD_TO_PATH="${INPUT_ADD_TO_PATH:-true}"
@@ -171,8 +170,7 @@ FAIL_IF_MISSING="${INPUT_FAIL_IF_MISSING:-true}"
 
 ARCH_LABEL="$(require_linux_x86_64)"
 UBUNTU_LABEL="$(detect_ubuntu_label)"
-ASSET_NAME="imagemagick-${VERSION}-${UBUNTU_LABEL}-${ARCH_LABEL}-${VARIANT}.tar.gz"
-ASSET_NAME_NO_VARIANT="imagemagick-${VERSION}-${UBUNTU_LABEL}-${ARCH_LABEL}.tar.gz"
+ASSET_NAME="imagemagick-${VERSION}-${UBUNTU_LABEL}-${ARCH_LABEL}.tar.gz"
 BASE_URL="${IMAGEMAGICK_RELEASE_BASE_URL:-https://github.com/jksy/imagemagick-build/releases/download}"
 
 if [[ "$VERSION" == v* ]]; then
@@ -196,28 +194,26 @@ selected_asset_name=""
 asset_found="false"
 
 for tag in "${TAG_CANDIDATES[@]}"; do
-  for candidate_asset in "$ASSET_NAME" "$ASSET_NAME_NO_VARIANT"; do
-    url="$BASE_URL/$tag/$candidate_asset"
-    echo "::notice::Trying $url"
-    http_code="$(download_http_code "$url" "$archive_path")"
+  url="$BASE_URL/$tag/$ASSET_NAME"
+  echo "::notice::Trying $url"
+  http_code="$(download_http_code "$url" "$archive_path")"
 
-    if [[ "$http_code" == "200" ]]; then
-      selected_url="$url"
-      selected_asset_name="$candidate_asset"
-      asset_found="true"
-      break 2
-    fi
+  if [[ "$http_code" == "200" ]]; then
+    selected_url="$url"
+    selected_asset_name="$ASSET_NAME"
+    asset_found="true"
+    break
+  fi
 
-    if [[ "$http_code" != "404" ]]; then
-      echo "::error::Download failed for $url (HTTP $http_code)"
-      exit 1
-    fi
-  done
+  if [[ "$http_code" != "404" ]]; then
+    echo "::error::Download failed for $url (HTTP $http_code)"
+    exit 1
+  fi
 done
 
 if [[ "$asset_found" != "true" ]]; then
   if is_true "$FAIL_IF_MISSING"; then
-    echo "::error::Release asset not found: $ASSET_NAME or $ASSET_NAME_NO_VARIANT"
+    echo "::error::Release asset not found: $ASSET_NAME"
     exit 1
   fi
 
