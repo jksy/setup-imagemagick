@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/jksy/setup-imagemagick/compare/v1.1.0...v1.1.1) (2026-04-05)
+
+
+### Bug Fixes
+
+* document Amazon Linux 2023 support in README behavior section ([#18](https://github.com/jksy/setup-imagemagick/issues/18)) ([ba7d55c](https://github.com/jksy/setup-imagemagick/commit/ba7d55c00140348805a2b597ba1e9ae100e509cc))
+
 ## [1.1.0](https://github.com/jksy/setup-imagemagick/compare/v1.0.1...v1.1.0) (2026-04-05)
 
 
