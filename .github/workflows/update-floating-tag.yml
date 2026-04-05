@@ -12,28 +12,11 @@ jobs:
   update-floating-tag:
     runs-on: ubuntu-24.04
     steps:
-      - name: Extract major version
-        id: major
-        run: |
-          tag="${GITHUB_REF_NAME}"
-          echo "major=${tag%%.*}" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
 
       - name: Force-move floating tag
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          major="${{ steps.major.outputs.major }}"
-          sha="${{ github.sha }}"
-          gh api \
-            --method POST \
-            -H "Accept: application/vnd.github+json" \
-            "repos/${{ github.repository }}/git/refs" \
-            -f ref="refs/tags/${major}" \
-            -f sha="${sha}" \
-            2>/dev/null || \
-          gh api \
-            --method PATCH \
-            -H "Accept: application/vnd.github+json" \
-            "repos/${{ github.repository }}/git/refs/tags/${major}" \
-            -f sha="${sha}" \
-            -F force=true
+          tag="${GITHUB_REF_NAME}"
+          major="${tag%%.*}"
+          git tag -f "${major}"
+          git push origin "refs/tags/${major}" --force
