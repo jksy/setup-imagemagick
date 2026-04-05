@@ -204,7 +204,7 @@ BASE_URL="${IMAGEMAGICK_RELEASE_BASE_URL:-https://github.com/jksy/imagemagick-bu
 
 # Snapshot tags have the form X.Y.Z-N-YYYYMMDD; the tarball uses only X.Y.Z-N
 _version_bare="${VERSION#v}"
-if [[ "$_version_bare" =~ ^([0-9]+\.[0-9]+\.[0-9]+-[0-9]+)-[0-9]{8}$ ]]; then
+if [[ "$_version_bare" =~ ^([0-9]+\.[0-9]+\.[0-9]+-[0-9]+)-[0-9]{8}(-[0-9]+)?$ ]]; then
   ASSET_VERSION="${BASH_REMATCH[1]}"
 else
   ASSET_VERSION="$_version_bare"
