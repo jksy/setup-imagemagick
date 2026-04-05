@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.2](https://github.com/jksy/setup-imagemagick/compare/v1.1.1...v1.1.2) (2026-04-05)
+
+
+### Bug Fixes
+
+* use git push instead of API to update floating tag ([#24](https://github.com/jksy/setup-imagemagick/issues/24)) ([e3f5f94](https://github.com/jksy/setup-imagemagick/commit/e3f5f9493eba0ff7b5f9e1b104eaff65832290e0))
+
 ## [1.1.1](https://github.com/jksy/setup-imagemagick/compare/v1.1.0...v1.1.1) (2026-04-05)
 
 
