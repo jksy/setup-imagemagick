@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.1](https://github.com/jksy/setup-imagemagick/compare/v1.0.0...v1.0.1) (2026-04-05)
+
+
+### Bug Fixes
+
+* skip labeling in release-please to avoid PR node resolution error ([228775f](https://github.com/jksy/setup-imagemagick/commit/228775fb08de2d3c830c4c2b714ce6d71ff95ad6))
+* skip labeling in release-please to avoid PR node resolution error ([d834dd0](https://github.com/jksy/setup-imagemagick/commit/d834dd07f6c29568c45e7d1a6a1854fa1d9dcdf2))
+* use glob-compatible pattern for semver tag filter ([bf99689](https://github.com/jksy/setup-imagemagick/commit/bf99689cfa0f4d7b94a36ef4990e4a9d7f1b8c0a))
+* use glob-compatible pattern for semver tag filter ([9594733](https://github.com/jksy/setup-imagemagick/commit/95947330a8881a9b68aba2b36a5d3c32b77bf447))
+
 ## 1.0.0 (2026-04-05)
 
 
