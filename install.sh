@@ -15,7 +15,7 @@ command_exists() {
   command -v "$1" >/dev/null 2>&1
 }
 
-require_linux_x86_64() {
+detect_arch() {
   local runner_os="${RUNNER_OS:-Linux}"
   if [[ "$runner_os" != "Linux" ]]; then
     echo "::error::Unsupported RUNNER_OS: $runner_os (Linux only)"
@@ -28,14 +28,17 @@ require_linux_x86_64() {
     x86_64|amd64)
       echo "x86_64"
       ;;
+    aarch64|arm64)
+      echo "aarch64"
+      ;;
     *)
-      echo "::error::Unsupported architecture: $machine (x86_64 only)" >&2
+      echo "::error::Unsupported architecture: $machine (x86_64 / aarch64 only)" >&2
       exit 1
       ;;
   esac
 }
 
-detect_ubuntu_label() {
+detect_os_label() {
   if [[ -n "${ImageOS:-}" ]]; then
     case "$ImageOS" in
       ubuntu22|ubuntu22.04) echo "ubuntu22.04"; return ;;
@@ -46,13 +49,23 @@ detect_ubuntu_label() {
   if [[ -f /etc/os-release ]]; then
     # shellcheck disable=SC1091
     source /etc/os-release
-    case "${VERSION_ID:-}" in
-      22.04) echo "ubuntu22.04"; return ;;
-      24.04) echo "ubuntu24.04"; return ;;
+    case "${ID:-}" in
+      ubuntu)
+        case "${VERSION_ID:-}" in
+          22.04) echo "ubuntu22.04"; return ;;
+          24.04) echo "ubuntu24.04"; return ;;
+        esac
+        ;;
+      amzn)
+        case "${VERSION_ID:-}" in
+          2023) echo "amzn2023"; return ;;
+          *) echo "::error::Unsupported Amazon Linux version: ${VERSION_ID} (supported: 2023)" >&2; exit 1 ;;
+        esac
+        ;;
     esac
   fi
 
-  echo "::error::Unsupported Ubuntu version. Supported: ubuntu-22.04 / ubuntu-24.04" >&2
+  echo "::error::Unsupported OS. Supported: ubuntu-22.04 / ubuntu-24.04 / Amazon Linux 2023" >&2
   exit 1
 }
 
@@ -62,18 +75,25 @@ install_ghostscript_if_missing() {
     return
   fi
 
-  if ! command_exists apt-get; then
-    echo "::error::Ghostscript is required for PDF conversion, but apt-get is unavailable" >&2
-    exit 1
-  fi
-
-  echo "::notice::Installing Ghostscript"
-  if command_exists sudo; then
-    sudo apt-get update
-    sudo apt-get install -y ghostscript
+  if command_exists apt-get; then
+    echo "::notice::Installing Ghostscript via apt-get"
+    if command_exists sudo; then
+      sudo apt-get update
+      sudo apt-get install -y ghostscript
+    else
+      apt-get update
+      apt-get install -y ghostscript
+    fi
+  elif command_exists dnf; then
+    echo "::notice::Installing Ghostscript via dnf"
+    if command_exists sudo; then
+      sudo dnf install -y ghostscript
+    else
+      dnf install -y ghostscript
+    fi
   else
-    apt-get update
-    apt-get install -y ghostscript
+    echo "::error::Ghostscript is required for PDF conversion, but neither apt-get nor dnf is available" >&2
+    exit 1
   fi
 
   if ! command_exists gs; then
@@ -198,8 +218,8 @@ ADD_TO_PATH="${INPUT_ADD_TO_PATH:-true}"
 EXPORT_ENV="${INPUT_EXPORT_ENV:-true}"
 FAIL_IF_MISSING="${INPUT_FAIL_IF_MISSING:-true}"
 
-ARCH_LABEL="$(require_linux_x86_64)"
-UBUNTU_LABEL="$(detect_ubuntu_label)"
+ARCH_LABEL="$(detect_arch)"
+OS_LABEL="$(detect_os_label)"
 BASE_URL="${IMAGEMAGICK_RELEASE_BASE_URL:-https://github.com/jksy/imagemagick-build/releases/download}"
 
 # Snapshot tags have the form X.Y.Z-N-YYYYMMDD; the tarball uses only X.Y.Z-N
@@ -209,7 +229,7 @@ if [[ "$_version_bare" =~ ^([0-9]+\.[0-9]+\.[0-9]+-[0-9]+)-[0-9]{8}(-[0-9]+)?$ ]
 else
   ASSET_VERSION="$_version_bare"
 fi
-ASSET_NAME="imagemagick-${ASSET_VERSION}-${UBUNTU_LABEL}-${ARCH_LABEL}.tar.gz"
+ASSET_NAME="imagemagick-${ASSET_VERSION}-${OS_LABEL}-${ARCH_LABEL}.tar.gz"
 
 if [[ "$VERSION" == v* ]]; then
   TAG_CANDIDATES=("$VERSION" "${VERSION#v}")

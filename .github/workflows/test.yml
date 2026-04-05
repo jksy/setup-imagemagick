@@ -142,6 +142,92 @@ jobs:
           python3 "${GITHUB_WORKSPACE}/.github/scripts/generate-test-pdf.py" input-rmagick.pdf
           bundle exec ruby -e 'require "rmagick"; img = Magick::Image.read("input-rmagick.pdf[0]").first; img.write("output-rmagick.png"); raise "empty output-rmagick.png" unless File.size?("output-rmagick.png")'
 
+  setup-imagemagick-amzn2023:
+    runs-on: ubuntu-24.04
+    container: amazonlinux:2023
+
+    steps:
+      - name: Install dependencies
+        run: dnf install -y tar gzip findutils jq python3 git pkgconf-pkg-config
+
+      - uses: actions/checkout@v4
+
+      - name: Resolve ImageMagick build version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="$(
+            curl -fsSL \
+              -H "Authorization: Bearer ${{ github.token }}" \
+              -H "Accept: application/vnd.github+json" \
+              -H "User-Agent: setup-imagemagick-test" \
+              https://api.github.com/repos/jksy/imagemagick-build/releases/latest |
+            jq -r '.tag_name'
+          )"
+          if [[ -z "$tag" || "$tag" == "null" ]]; then
+            echo "::error::Failed to resolve latest release tag from jksy/imagemagick-build"
+            exit 1
+          fi
+          echo "version=${tag#v}" >>"$GITHUB_OUTPUT"
+
+      - name: Setup ImageMagick
+        id: setup-imagemagick
+        uses: ./
+        with:
+          version: ${{ steps.version.outputs.version }}
+          github-token: ${{ github.token }}
+
+      - name: Check magick version
+        shell: bash
+        run: |
+          set -euo pipefail
+          magick -version
+
+      - name: Check formats
+        shell: bash
+        run: |
+          set -euo pipefail
+          magick -list format | grep -E "JPEG|PNG|WEBP|AVIF"
+
+      - name: Check image export for multiple formats
+        shell: bash
+        run: |
+          set -euo pipefail
+          workdir="$(mktemp -d)"
+          trap 'rm -rf "$workdir"' EXIT
+          cd "$workdir"
+
+          magick -size 64x64 gradient: input.png
+          magick input.png output.jpg
+          magick input.png output.webp
+          magick input.png output.avif
+
+          test -s output.jpg
+          test -s output.webp
+          test -s output.avif
+
+      - name: Check PDF to PNG conversion
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v gs
+
+          workdir="$(mktemp -d)"
+          trap 'rm -rf "$workdir"' EXIT
+          cd "$workdir"
+
+          python3 "${GITHUB_WORKSPACE}/.github/scripts/generate-test-pdf.py" input.pdf
+
+          magick input.pdf[0] output.png
+          test -s output.png
+
+      - name: Check pkg-config
+        shell: bash
+        run: |
+          set -euo pipefail
+          pkg-config --modversion MagickCore
+
   version-format:
     strategy:
       fail-fast: false
