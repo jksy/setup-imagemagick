@@ -1,0 +1,39 @@
+name: update-floating-tag
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+permissions:
+  contents: write
+
+jobs:
+  update-floating-tag:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Extract major version
+        id: major
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          echo "major=${tag%%.*}" >> "$GITHUB_OUTPUT"
+
+      - name: Force-move floating tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          major="${{ steps.major.outputs.major }}"
+          sha="${{ github.sha }}"
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            "repos/${{ github.repository }}/git/refs" \
+            -f ref="refs/tags/${major}" \
+            -f sha="${sha}" \
+            2>/dev/null || \
+          gh api \
+            --method PATCH \
+            -H "Accept: application/vnd.github+json" \
+            "repos/${{ github.repository }}/git/refs/tags/${major}" \
+            -f sha="${sha}" \
+            -F force=true
