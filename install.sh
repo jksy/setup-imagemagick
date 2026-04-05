@@ -200,8 +200,16 @@ FAIL_IF_MISSING="${INPUT_FAIL_IF_MISSING:-true}"
 
 ARCH_LABEL="$(require_linux_x86_64)"
 UBUNTU_LABEL="$(detect_ubuntu_label)"
-ASSET_NAME="imagemagick-${VERSION}-${UBUNTU_LABEL}-${ARCH_LABEL}.tar.gz"
 BASE_URL="${IMAGEMAGICK_RELEASE_BASE_URL:-https://github.com/jksy/imagemagick-build/releases/download}"
+
+# Snapshot tags have the form X.Y.Z-N-YYYYMMDD; the tarball uses only X.Y.Z-N
+_version_bare="${VERSION#v}"
+if [[ "$_version_bare" =~ ^([0-9]+\.[0-9]+\.[0-9]+-[0-9]+)-[0-9]{8}(-[0-9]+)?$ ]]; then
+  ASSET_VERSION="${BASH_REMATCH[1]}"
+else
+  ASSET_VERSION="$_version_bare"
+fi
+ASSET_NAME="imagemagick-${ASSET_VERSION}-${UBUNTU_LABEL}-${ARCH_LABEL}.tar.gz"
 
 if [[ "$VERSION" == v* ]]; then
   TAG_CANDIDATES=("$VERSION" "${VERSION#v}")

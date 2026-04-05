@@ -16,7 +16,9 @@ Install prebuilt ImageMagick binaries from [jksy/imagemagick-build releases](htt
 
 ## Inputs
 
-- `version` (required)
+- `version` (required) — rolling release (`7.1.2-18`) or snapshot release (`7.1.2-18-20260401`).
+  See [jksy/imagemagick-build: Release naming](https://github.com/jksy/imagemagick-build?tab=readme-ov-file#release-naming--%E3%83%AA%E3%83%AA%E3%83%BC%E3%82%B9%E3%81%AE%E3%82%BF%E3%82%B0%E5%91%BD%E5%90%8D)
+  and the [releases page](https://github.com/jksy/imagemagick-build/releases) for available versions.
 - `install-prefix` (default: `${{ runner.temp }}/imagemagick`)
 - `add-to-path` (default: `true`)
 - `export-env` (default: `true`)
