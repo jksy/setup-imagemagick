@@ -35,7 +35,9 @@ Install prebuilt ImageMagick binaries from [jksy/imagemagick-build releases](htt
 
 ## Behavior
 
-- Resolves runner OS/arch (`ubuntu-22.04` / `ubuntu-24.04`, `x86_64`)
+- Resolves runner OS/arch:
+  - `ubuntu-22.04` / `ubuntu-24.04` — `x86_64`
+  - `amazonlinux:2023` — `x86_64` / `aarch64`
 - Downloads release asset:
   `imagemagick-${version}-ubuntu24.04-x86_64.tar.gz`
 - Extracts into `install-prefix`
