@@ -10,7 +10,7 @@
    - `target`: 作成したタグ（例: `v1.2.0`）
    - `major_version`: `v1`
 
-これで `actions/checkout@v1` を使っているユーザーに最新版が届く。
+これで `jksy/setup-imagemagick@v1` を使っているユーザーに最新版が届く。
 
 ## ロールバック
 
