@@ -5,7 +5,7 @@
 1. PR を main にマージ
 2. GitHub 上で手動リリースを作成
    - タグ: `v1.x.x`（例: `v1.2.0`）
-   - リリースノートを記載
+   - **"Generate release notes"** ボタンでリリースノートを自動生成
 3. Actions タブから **Update Floating Tag** を手動実行
    - `target`: 作成したタグ（例: `v1.2.0`）
    - `major_version`: `v1`
