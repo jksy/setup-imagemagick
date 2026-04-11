@@ -318,3 +318,14 @@ append_env_if_requested "$INSTALL_PREFIX" "$ADD_TO_PATH" "$EXPORT_ENV"
 emit_outputs "$INSTALL_PREFIX" "$MAGICK_PATH"
 
 LD_LIBRARY_PATH="$INSTALL_PREFIX/lib:${LD_LIBRARY_PATH:-}" "$MAGICK_PATH" -version
+
+echo "::group::Bundled library versions"
+VERSIONS_FILE="$INSTALL_PREFIX/VERSIONS"
+if [[ -f "$VERSIONS_FILE" ]]; then
+  while IFS='=' read -r lib_name lib_ver; do
+    printf '  %-20s %s\n' "$lib_name" "$lib_ver"
+  done < "$VERSIONS_FILE"
+else
+  echo "::warning::VERSIONS file not found (older release)"
+fi
+echo "::endgroup::"
