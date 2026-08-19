@@ -69,6 +69,39 @@ detect_os_label() {
   exit 1
 }
 
+run_privileged() {
+  if command_exists sudo; then
+    sudo "$@"
+  else
+    "$@"
+  fi
+}
+
+# apt blocks for a long time when a mirror is unresponsive, which can stall
+# the whole job until timeout-minutes. Fail fast instead. Acquire::*::Timeout
+# alone does not cover a mirror that accepts connections but stops responding,
+# so apt-get invocations are additionally bounded with timeout(1).
+APT_OPTS=(-o Acquire::http::Timeout=10 -o Acquire::https::Timeout=10 -o Acquire::Retries=2)
+APT_HARD_TIMEOUT_SECONDS=300
+
+replace_unresponsive_apt_mirror() {
+  # GitHub-hosted Ubuntu runners point apt at azure.archive.ubuntu.com, which
+  # occasionally becomes unresponsive and stalls apt-get (see issue #42).
+  # Rewrite it to the public archive.ubuntu.com before installing packages.
+  # The runner images configure the mirror indirectly via
+  # "mirror+file:/etc/apt/apt-mirrors.txt", so that file must be covered too.
+  local sources
+  sources="$(grep -rl 'azure\.archive\.ubuntu\.com' /etc/apt/sources.list /etc/apt/sources.list.d /etc/apt/apt-mirrors.txt 2>/dev/null || true)"
+  if [[ -z "$sources" ]]; then
+    return
+  fi
+
+  echo "::notice::Rewriting azure.archive.ubuntu.com to archive.ubuntu.com in apt sources"
+  while IFS= read -r sources_file; do
+    run_privileged sed -i 's/azure\.archive\.ubuntu\.com/archive.ubuntu.com/g' "$sources_file"
+  done <<<"$sources"
+}
+
 install_ghostscript_if_missing() {
   if command_exists gs; then
     echo "::notice::Ghostscript already available"
@@ -77,20 +110,12 @@ install_ghostscript_if_missing() {
 
   if command_exists apt-get; then
     echo "::notice::Installing Ghostscript via apt-get"
-    if command_exists sudo; then
-      sudo apt-get update
-      sudo apt-get install -y ghostscript
-    else
-      apt-get update
-      apt-get install -y ghostscript
-    fi
+    replace_unresponsive_apt_mirror
+    run_privileged timeout "$APT_HARD_TIMEOUT_SECONDS" apt-get "${APT_OPTS[@]}" update
+    run_privileged timeout "$APT_HARD_TIMEOUT_SECONDS" apt-get "${APT_OPTS[@]}" install -y ghostscript
   elif command_exists dnf; then
     echo "::notice::Installing Ghostscript via dnf"
-    if command_exists sudo; then
-      sudo dnf install -y ghostscript
-    else
-      dnf install -y ghostscript
-    fi
+    run_privileged dnf install -y ghostscript
   else
     echo "::error::Ghostscript is required for PDF conversion, but neither apt-get nor dnf is available" >&2
     exit 1
@@ -151,14 +176,17 @@ download_http_code() {
   local archive="$2"
   local code
 
+  # Bound each attempt so a stalled connection cannot hang the job.
+  local curl_opts=(-sS -L --connect-timeout 10 --max-time 300 --retry 3 --retry-delay 2)
+
   if [[ -n "${INPUT_GITHUB_TOKEN:-}" ]]; then
     if [[ "${INPUT_GITHUB_TOKEN:-}" == *$'\n'* || "${INPUT_GITHUB_TOKEN:-}" == *$'\r'* ]]; then
       echo "::error::github-token contains invalid newline characters" >&2
       exit 1
     fi
-    code="$(curl -sS -L --retry 3 --retry-delay 2 -H "Authorization: Bearer ${INPUT_GITHUB_TOKEN:-}" -o "$archive" -w "%{http_code}" "$url" || true)"
+    code="$(curl "${curl_opts[@]}" -H "Authorization: Bearer ${INPUT_GITHUB_TOKEN:-}" -o "$archive" -w "%{http_code}" "$url" || true)"
   else
-    code="$(curl -sS -L --retry 3 --retry-delay 2 -o "$archive" -w "%{http_code}" "$url" || true)"
+    code="$(curl "${curl_opts[@]}" -o "$archive" -w "%{http_code}" "$url" || true)"
   fi
 
   printf '%s' "$code"
