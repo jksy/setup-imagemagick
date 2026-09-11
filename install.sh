@@ -84,24 +84,6 @@ run_privileged() {
 APT_OPTS=(-o Acquire::http::Timeout=10 -o Acquire::https::Timeout=10 -o Acquire::Retries=2)
 APT_HARD_TIMEOUT_SECONDS=300
 
-replace_unresponsive_apt_mirror() {
-  # GitHub-hosted Ubuntu runners point apt at azure.archive.ubuntu.com, which
-  # occasionally becomes unresponsive and stalls apt-get (see issue #42).
-  # Rewrite it to the public archive.ubuntu.com before installing packages.
-  # The runner images configure the mirror indirectly via
-  # "mirror+file:/etc/apt/apt-mirrors.txt", so that file must be covered too.
-  local sources
-  sources="$(grep -rl 'azure\.archive\.ubuntu\.com' /etc/apt/sources.list /etc/apt/sources.list.d /etc/apt/apt-mirrors.txt 2>/dev/null || true)"
-  if [[ -z "$sources" ]]; then
-    return
-  fi
-
-  echo "::notice::Rewriting azure.archive.ubuntu.com to archive.ubuntu.com in apt sources"
-  while IFS= read -r sources_file; do
-    run_privileged sed -i 's/azure\.archive\.ubuntu\.com/archive.ubuntu.com/g' "$sources_file"
-  done <<<"$sources"
-}
-
 install_ghostscript_if_missing() {
   if command_exists gs; then
     echo "::notice::Ghostscript already available"
@@ -110,8 +92,12 @@ install_ghostscript_if_missing() {
 
   if command_exists apt-get; then
     echo "::notice::Installing Ghostscript via apt-get"
-    replace_unresponsive_apt_mirror
-    run_privileged timeout "$APT_HARD_TIMEOUT_SECONDS" apt-get "${APT_OPTS[@]}" update
+    # A single unreachable repository (e.g. security.ubuntu.com, which has no
+    # mirror fallback) must not abort the install. apt saves each index it did
+    # fetch, so ghostscript can still be installed from the remaining sources.
+    if ! run_privileged timeout "$APT_HARD_TIMEOUT_SECONDS" apt-get "${APT_OPTS[@]}" update; then
+      echo "::warning::apt-get update failed or timed out; installing from the package lists that were fetched"
+    fi
     run_privileged timeout "$APT_HARD_TIMEOUT_SECONDS" apt-get "${APT_OPTS[@]}" install -y ghostscript
   elif command_exists dnf; then
     echo "::notice::Installing Ghostscript via dnf"
