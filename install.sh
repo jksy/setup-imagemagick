@@ -43,6 +43,7 @@ detect_os_label() {
     case "$ImageOS" in
       ubuntu22|ubuntu22.04) echo "ubuntu22.04"; return ;;
       ubuntu24|ubuntu24.04) echo "ubuntu24.04"; return ;;
+      ubuntu26|ubuntu26.04) echo "ubuntu26.04"; return ;;
     esac
   fi
 
@@ -54,18 +55,19 @@ detect_os_label() {
         case "${VERSION_ID:-}" in
           22.04) echo "ubuntu22.04"; return ;;
           24.04) echo "ubuntu24.04"; return ;;
+          26.04) echo "ubuntu26.04"; return ;;
         esac
         ;;
       amzn)
         case "${VERSION_ID:-}" in
-          2023) echo "amzn2023"; return ;;
-          *) echo "::error::Unsupported Amazon Linux version: ${VERSION_ID} (supported: 2023)" >&2; exit 1 ;;
+          2023|2027) echo "amzn${VERSION_ID}"; return ;;
+          *) echo "::error::Unsupported Amazon Linux version: ${VERSION_ID} (supported: 2023 / 2027)" >&2; exit 1 ;;
         esac
         ;;
     esac
   fi
 
-  echo "::error::Unsupported OS. Supported: ubuntu-22.04 / ubuntu-24.04 / Amazon Linux 2023" >&2
+  echo "::error::Unsupported OS. Supported: ubuntu-22.04 / ubuntu-24.04 / ubuntu-26.04 / Amazon Linux 2023 / 2027" >&2
   exit 1
 }
 
@@ -109,6 +111,34 @@ install_ghostscript_if_missing() {
 
   if ! command_exists gs; then
     echo "::error::Ghostscript installation completed but gs command was not found" >&2
+    exit 1
+  fi
+}
+
+# The default build variant is compiled with OpenMP and needs libgomp.so.1 at
+# run time. GitHub-hosted Ubuntu runners and amazonlinux:2023 ship it, but
+# amazonlinux:2027 (and other minimal containers) do not.
+install_openmp_runtime_if_missing() {
+  if ldconfig -p 2>/dev/null | grep -q 'libgomp\.so\.1'; then
+    return
+  fi
+
+  if command_exists apt-get; then
+    echo "::notice::Installing libgomp1 via apt-get (OpenMP runtime)"
+    if ! run_privileged timeout "$APT_HARD_TIMEOUT_SECONDS" apt-get "${APT_OPTS[@]}" update; then
+      echo "::warning::apt-get update failed or timed out; installing from the package lists that were fetched"
+    fi
+    run_privileged timeout "$APT_HARD_TIMEOUT_SECONDS" apt-get "${APT_OPTS[@]}" install -y libgomp1
+  elif command_exists dnf; then
+    echo "::notice::Installing libgomp via dnf (OpenMP runtime)"
+    run_privileged dnf install -y libgomp
+  else
+    echo "::error::libgomp.so.1 (OpenMP runtime) is required, but neither apt-get nor dnf is available" >&2
+    exit 1
+  fi
+
+  if ! ldconfig -p 2>/dev/null | grep -q 'libgomp\.so\.1'; then
+    echo "::error::OpenMP runtime installation completed but libgomp.so.1 was not found" >&2
     exit 1
   fi
 }
@@ -328,6 +358,7 @@ fi
 rewrite_pkgconfig_prefix "$INSTALL_PREFIX"
 log_rpath_related_info "$INSTALL_PREFIX/lib"
 install_ghostscript_if_missing
+install_openmp_runtime_if_missing
 append_env_if_requested "$INSTALL_PREFIX" "$ADD_TO_PATH" "$EXPORT_ENV"
 emit_outputs "$INSTALL_PREFIX" "$MAGICK_PATH"
 
