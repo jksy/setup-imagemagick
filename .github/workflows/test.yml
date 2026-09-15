@@ -12,7 +12,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, ubuntu-24.04]
+        # ubuntu-26.04 runner images are still in public preview.
+        os: [ubuntu-22.04, ubuntu-24.04, ubuntu-26.04]
         use-custom-prefix: [false, true]
     runs-on: ${{ matrix.os }}
 
@@ -142,9 +143,16 @@ jobs:
           python3 "${GITHUB_WORKSPACE}/.github/scripts/generate-test-pdf.py" input-rmagick.pdf
           bundle exec ruby -e 'require "rmagick"; img = Magick::Image.read("input-rmagick.pdf[0]").first; img.write("output-rmagick.png"); raise "empty output-rmagick.png" unless File.size?("output-rmagick.png")'
 
-  setup-imagemagick-amzn2023:
+  setup-imagemagick-amzn:
+    strategy:
+      fail-fast: false
+      matrix:
+        # These tags are the supported install targets, not dependencies to
+        # bump; Renovate is configured to leave them alone (see renovate.json).
+        # amazonlinux:2027 is still in public preview.
+        container: ["amazonlinux:2023", "amazonlinux:2027"]
     runs-on: ubuntu-24.04
-    container: amazonlinux:2023
+    container: ${{ matrix.container }}
 
     steps:
       - name: Install dependencies

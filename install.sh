@@ -43,6 +43,7 @@ detect_os_label() {
     case "$ImageOS" in
       ubuntu22|ubuntu22.04) echo "ubuntu22.04"; return ;;
       ubuntu24|ubuntu24.04) echo "ubuntu24.04"; return ;;
+      ubuntu26|ubuntu26.04) echo "ubuntu26.04"; return ;;
     esac
   fi
 
@@ -54,18 +55,19 @@ detect_os_label() {
         case "${VERSION_ID:-}" in
           22.04) echo "ubuntu22.04"; return ;;
           24.04) echo "ubuntu24.04"; return ;;
+          26.04) echo "ubuntu26.04"; return ;;
         esac
         ;;
       amzn)
         case "${VERSION_ID:-}" in
-          2023) echo "amzn2023"; return ;;
-          *) echo "::error::Unsupported Amazon Linux version: ${VERSION_ID} (supported: 2023)" >&2; exit 1 ;;
+          2023|2027) echo "amzn${VERSION_ID}"; return ;;
+          *) echo "::error::Unsupported Amazon Linux version: ${VERSION_ID} (supported: 2023 / 2027)" >&2; exit 1 ;;
         esac
         ;;
     esac
   fi
 
-  echo "::error::Unsupported OS. Supported: ubuntu-22.04 / ubuntu-24.04 / Amazon Linux 2023" >&2
+  echo "::error::Unsupported OS. Supported: ubuntu-22.04 / ubuntu-24.04 / ubuntu-26.04 / Amazon Linux 2023 / 2027" >&2
   exit 1
 }
 

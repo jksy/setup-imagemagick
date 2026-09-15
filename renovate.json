@@ -2,5 +2,13 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:recommended"
+  ],
+  "packageRules": [
+    {
+      "description": "The amazonlinux container tags in test.yml are the supported install targets (they must match the OS labels published by jksy/imagemagick-build), not dependencies to bump.",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["amazonlinux"],
+      "enabled": false
+    }
   ]
 }
