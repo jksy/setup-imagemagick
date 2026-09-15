@@ -115,6 +115,34 @@ install_ghostscript_if_missing() {
   fi
 }
 
+# The default build variant is compiled with OpenMP and needs libgomp.so.1 at
+# run time. GitHub-hosted Ubuntu runners and amazonlinux:2023 ship it, but
+# amazonlinux:2027 (and other minimal containers) do not.
+install_openmp_runtime_if_missing() {
+  if ldconfig -p 2>/dev/null | grep -q 'libgomp\.so\.1'; then
+    return
+  fi
+
+  if command_exists apt-get; then
+    echo "::notice::Installing libgomp1 via apt-get (OpenMP runtime)"
+    if ! run_privileged timeout "$APT_HARD_TIMEOUT_SECONDS" apt-get "${APT_OPTS[@]}" update; then
+      echo "::warning::apt-get update failed or timed out; installing from the package lists that were fetched"
+    fi
+    run_privileged timeout "$APT_HARD_TIMEOUT_SECONDS" apt-get "${APT_OPTS[@]}" install -y libgomp1
+  elif command_exists dnf; then
+    echo "::notice::Installing libgomp via dnf (OpenMP runtime)"
+    run_privileged dnf install -y libgomp
+  else
+    echo "::error::libgomp.so.1 (OpenMP runtime) is required, but neither apt-get nor dnf is available" >&2
+    exit 1
+  fi
+
+  if ! ldconfig -p 2>/dev/null | grep -q 'libgomp\.so\.1'; then
+    echo "::error::OpenMP runtime installation completed but libgomp.so.1 was not found" >&2
+    exit 1
+  fi
+}
+
 emit_outputs() {
   local prefix="$1"
   local magick_path="$2"
@@ -330,6 +358,7 @@ fi
 rewrite_pkgconfig_prefix "$INSTALL_PREFIX"
 log_rpath_related_info "$INSTALL_PREFIX/lib"
 install_ghostscript_if_missing
+install_openmp_runtime_if_missing
 append_env_if_requested "$INSTALL_PREFIX" "$ADD_TO_PATH" "$EXPORT_ENV"
 emit_outputs "$INSTALL_PREFIX" "$MAGICK_PATH"
 
