@@ -151,7 +151,7 @@ jobs:
         # bump; Renovate is configured to leave them alone (see renovate.json).
         # amazonlinux:2027 is still in public preview.
         container: ["amazonlinux:2023", "amazonlinux:2027"]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     container: ${{ matrix.container }}
 
     steps:
