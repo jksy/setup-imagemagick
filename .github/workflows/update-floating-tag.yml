@@ -28,6 +28,11 @@ jobs:
         git config user.name "github-actions[bot]"
         git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
     - name: Tag new target
-      run: git tag -f ${{ github.event.inputs.major_version }} ${{ github.event.inputs.target }}
+      env:
+        MAJOR_VERSION: ${{ github.event.inputs.major_version }}
+        TARGET: ${{ github.event.inputs.target }}
+      run: git tag -f "$MAJOR_VERSION" "$TARGET"
     - name: Push new tag
-      run: git push origin ${{ github.event.inputs.major_version }} --force
+      env:
+        MAJOR_VERSION: ${{ github.event.inputs.major_version }}
+      run: git push origin "$MAJOR_VERSION" --force
