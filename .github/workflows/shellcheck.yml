@@ -1,0 +1,27 @@
+name: shellcheck
+
+on:
+  pull_request:
+    paths:
+      - "**.sh"
+      - .github/workflows/shellcheck.yml
+
+permissions:
+  contents: read
+
+jobs:
+  shellcheck:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Use the shellcheck preinstalled on the runner, and fail rather than
+      # pass silently when it is missing.
+      - name: Require shellcheck
+        run: |
+          command -v shellcheck || { echo "::error::shellcheck is not installed"; exit 1; }
+          shellcheck --version
+      - name: Run shellcheck
+        run: git ls-files -z -- '*.sh' | xargs -0 --no-run-if-empty shellcheck

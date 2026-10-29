@@ -18,7 +18,7 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Resolve ImageMagick build version
         id: version
@@ -123,7 +123,7 @@ jobs:
           pkg-config --modversion MagickCore
 
       - name: Setup Ruby
-        uses: ruby/setup-ruby@v1
+        uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
         with:
           ruby-version: "4.0.9"
           bundler-cache: false
@@ -158,7 +158,7 @@ jobs:
       - name: Install dependencies
         run: dnf install -y tar gzip findutils jq python3 git pkgconf-pkg-config
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Resolve ImageMagick build version
         id: version
@@ -247,7 +247,7 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup ImageMagick
         uses: ./
@@ -260,3 +260,25 @@ jobs:
         run: |
           set -euo pipefail
           magick -version
+
+  # Single status for the required checks: fails unless every test job
+  # succeeded, including when one is skipped or cancelled.
+  test-passed:
+    if: always()
+    needs: [setup-imagemagick, setup-imagemagick-amzn, version-format]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    steps:
+      - name: Check test results
+        shell: bash
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          set -euo pipefail
+          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<<"$NEEDS"
+          failed="$(jq -r '[to_entries[] | select(.value.result != "success") | .key] | join(", ")' <<<"$NEEDS")"
+          if [[ -n "$failed" ]]; then
+            echo "::error::Test jobs did not succeed: $failed"
+            exit 1
+          fi
