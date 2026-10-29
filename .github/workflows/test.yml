@@ -260,3 +260,25 @@ jobs:
         run: |
           set -euo pipefail
           magick -version
+
+  # Single status for the required checks: fails unless every test job
+  # succeeded, including when one is skipped or cancelled.
+  test-passed:
+    if: always()
+    needs: [setup-imagemagick, setup-imagemagick-amzn, version-format]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    steps:
+      - name: Check test results
+        shell: bash
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          set -euo pipefail
+          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<<"$NEEDS"
+          failed="$(jq -r '[to_entries[] | select(.value.result != "success") | .key] | join(", ")' <<<"$NEEDS")"
+          if [[ -n "$failed" ]]; then
+            echo "::error::Test jobs did not succeed: $failed"
+            exit 1
+          fi
