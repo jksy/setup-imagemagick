@@ -18,23 +18,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version: stable
-          cache-dependency-path: .github/tools/actionlint/go.sum
-      # Built from source: the version is pinned in go.mod (bumped by
-      # Renovate) and the module contents are verified against go.sum and
-      # sum.golang.org.
-      - name: Build actionlint
-        working-directory: .github/tools/actionlint
+      # The official image, pinned by digest in the Dockerfile.
+      - name: Build actionlint image
+        run: docker build --quiet --tag actionlint .github/tools/actionlint
+      - name: Run actionlint
         run: |
-          go build -trimpath -o "$RUNNER_TEMP/actionlint" github.com/rhysd/actionlint/cmd/actionlint
-          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
-      # Without shellcheck, actionlint silently skips checking `run:` scripts.
-      - name: Require shellcheck
-        run: |
-          command -v shellcheck || { echo "::error::shellcheck is not installed"; exit 1; }
-          shellcheck --version
-      - run: |
-          actionlint -version
-          actionlint -color
+          docker run --rm -v "$PWD:/repo" -w /repo actionlint -version
+          docker run --rm -v "$PWD:/repo" -w /repo actionlint -color
