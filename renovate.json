@@ -15,36 +15,25 @@
       "enabled": false
     },
     {
-      "description": "Tools that CI builds from source (see .github/tools/). go.mod marks every dependency of a tool module `// indirect`, including the tool itself, so indirect dependencies are enabled. Their own dependencies are updated too, so security fixes are not left waiting for an upstream release.",
+      "description": "Tools that CI builds from source (see .github/tools/). Their dependencies stay at the versions each tool release selects, so only the tools themselves are updated. Vulnerability alerts still open fixes for the dependencies.",
       "matchManagers": ["gomod"],
       "matchFileNames": [".github/tools/actionlint/go.mod", ".github/tools/gitleaks/go.mod"],
-      "matchDepTypes": ["indirect"],
-      "enabled": true
+      "enabled": false
     },
     {
-      "description": "Run go mod tidy so go.sum and the rest of the tool's dependencies follow the update.",
+      "description": "go.mod marks the tool `// indirect` like every other dependency, so it is enabled by name. go mod tidy moves the rest of the dependencies to the versions the new release selects.",
       "matchManagers": ["gomod"],
       "matchFileNames": [".github/tools/actionlint/go.mod", ".github/tools/gitleaks/go.mod"],
+      "matchPackageNames": ["github.com/rhysd/actionlint", "github.com/zricethezav/gitleaks/v8"],
+      "enabled": true,
       "postUpdateOptions": ["gomodTidy"]
     },
     {
-      "description": "A new Go major version is a different module path, which the tools would have to import themselves. Keep each tool to a single PR.",
+      "description": "A new Go major version is a different module path, which the workflows build by name.",
       "matchManagers": ["gomod"],
       "matchFileNames": [".github/tools/actionlint/go.mod", ".github/tools/gitleaks/go.mod"],
       "matchUpdateTypes": ["major"],
       "enabled": false
-    },
-    {
-      "description": "One PR per tool.",
-      "matchManagers": ["gomod"],
-      "matchFileNames": [".github/tools/actionlint/go.mod"],
-      "groupName": "actionlint tool module"
-    },
-    {
-      "description": "One PR per tool.",
-      "matchManagers": ["gomod"],
-      "matchFileNames": [".github/tools/gitleaks/go.mod"],
-      "groupName": "gitleaks tool module"
     }
   ]
 }
