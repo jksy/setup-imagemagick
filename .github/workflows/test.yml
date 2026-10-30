@@ -123,7 +123,7 @@ jobs:
           pkg-config --modversion MagickCore
 
       - name: Setup Ruby
-        uses: ruby/setup-ruby@v1.335.0
+        uses: ruby/setup-ruby@v1.336.0
         with:
           ruby-version: "4.0.9"
           bundler-cache: false
