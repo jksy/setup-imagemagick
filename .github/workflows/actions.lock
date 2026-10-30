@@ -11,7 +11,7 @@ workflows:
         - 'actions/checkout@v7.0.1'
     '.github/workflows/test.yml':
         - 'actions/checkout@v7.0.1'
-        - 'ruby/setup-ruby@v1.335.0'
+        - 'ruby/setup-ruby@v1.336.0'
     '.github/workflows/update-floating-tag.yml':
         - 'actions/checkout@v7.0.1'
     '.github/workflows/verify-lockfile.yml':
@@ -22,8 +22,8 @@ dependencies:
         commit: 'sha1-3d3c42e5aac5ba805825da76410c181273ba90b1'
         owner_id: 44036562
         repo_id: 197814629
-    'ruby/setup-ruby@v1.335.0':
-        ref: 'v1.335.0'
-        commit: 'sha1-7f797815d8adceb1c412e7abefdd1ab4abc47a5f'
+    'ruby/setup-ruby@v1.336.0':
+        ref: 'v1.336.0'
+        commit: 'sha1-de492cf36cbab201753d720ce4f4e336cd688c94'
         owner_id: 210414
         repo_id: 231208785
