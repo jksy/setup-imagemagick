@@ -13,27 +13,6 @@
       "matchDatasources": ["docker"],
       "matchPackageNames": ["amazonlinux"],
       "enabled": false
-    },
-    {
-      "description": "Tools that CI builds from source (see .github/tools/). Their dependencies stay at the versions each tool release selects, so only the tools themselves are updated. Vulnerability alerts still open fixes for the dependencies.",
-      "matchManagers": ["gomod"],
-      "matchFileNames": [".github/tools/actionlint/go.mod", ".github/tools/gitleaks/go.mod"],
-      "enabled": false
-    },
-    {
-      "description": "go.mod marks the tool `// indirect` like every other dependency, so it is enabled by name. go mod tidy moves the rest of the dependencies to the versions the new release selects.",
-      "matchManagers": ["gomod"],
-      "matchFileNames": [".github/tools/actionlint/go.mod", ".github/tools/gitleaks/go.mod"],
-      "matchPackageNames": ["github.com/rhysd/actionlint", "github.com/zricethezav/gitleaks/v8"],
-      "enabled": true,
-      "postUpdateOptions": ["gomodTidy"]
-    },
-    {
-      "description": "A new Go major version is a different module path, which the workflows build by name.",
-      "matchManagers": ["gomod"],
-      "matchFileNames": [".github/tools/actionlint/go.mod", ".github/tools/gitleaks/go.mod"],
-      "matchUpdateTypes": ["major"],
-      "enabled": false
     }
   ]
 }
