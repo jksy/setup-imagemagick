@@ -25,7 +25,7 @@
 | Security | `security` | 手で付ける |
 | Documentation | `documentation` | labeler（`**/*.md`） |
 | Dependencies | `dependencies` | Renovate（action の実行に関わる依存） |
-| CI | `github_actions` | labeler（`.github/**`）、Renovate（`.github/` 配下の依存） |
+| CI | `github_actions` | labeler（`.github/**`、`renovate.json`）、Renovate（`.github/` 配下の依存） |
 
 ドキュメントだけ・CI だけの PR は labeler が付けるラベルで足りる。
 
