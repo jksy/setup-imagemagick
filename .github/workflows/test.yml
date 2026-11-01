@@ -47,6 +47,14 @@ jobs:
           github-token: ${{ github.token }}
           install-prefix: ${{ matrix.use-custom-prefix && format('{0}/imagemagick-custom', runner.temp) || '' }}
 
+      - name: Check attestation was verified
+        shell: bash
+        run: |
+          if [[ "${{ steps.setup-imagemagick.outputs.attestation-verified }}" != "true" ]]; then
+            echo "::error::The latest release was installed without verifying its attestation"
+            exit 1
+          fi
+
       - name: Check install prefix output
         shell: bash
         run: |
@@ -156,7 +164,9 @@ jobs:
 
     steps:
       - name: Install dependencies
-        run: dnf install -y tar gzip findutils jq python3 git pkgconf-pkg-config
+        run: |
+          curl -fsSL https://cli.github.com/packages/rpm/gh-cli.repo -o /etc/yum.repos.d/gh-cli.repo
+          dnf install -y tar gzip findutils jq python3 git pkgconf-pkg-config gh
 
       - uses: actions/checkout@v7.0.1
 
@@ -185,6 +195,14 @@ jobs:
         with:
           version: ${{ steps.version.outputs.version }}
           github-token: ${{ github.token }}
+
+      - name: Check attestation was verified
+        shell: bash
+        run: |
+          if [[ "${{ steps.setup-imagemagick.outputs.attestation-verified }}" != "true" ]]; then
+            echo "::error::The latest release was installed without verifying its attestation"
+            exit 1
+          fi
 
       - name: Check magick version
         shell: bash
@@ -241,9 +259,11 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-22.04, ubuntu-24.04]
+        # Both tags predate attestation support in the installer, so they
+        # install with a warning and attestation-verified=false.
         version:
-          - "7.1.2-18"           # rolling release (no date)
-          - "7.1.2-18-20260405"  # snapshot release (with date)
+          - "7.1.2-34"           # first build (no date)
+          - "7.1.2-34-20261028"  # rebuild (with date)
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -261,11 +281,33 @@ jobs:
           set -euo pipefail
           magick -version
 
+  unsupported-version:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      # This tag has no install.sh, so v2 cannot install it.
+      - name: Setup ImageMagick
+        id: setup-imagemagick
+        continue-on-error: true
+        uses: ./
+        with:
+          version: "7.1.2-18-20260405"
+
+      - name: Check the setup failed
+        shell: bash
+        run: |
+          if [[ "${{ steps.setup-imagemagick.outcome }}" != "failure" ]]; then
+            echo "::error::setup-imagemagick should fail for a tag without install.sh"
+            exit 1
+          fi
+
   # Single status for the required checks: fails unless every test job
   # succeeded, including when one is skipped or cancelled.
   test-passed:
     if: always()
-    needs: [setup-imagemagick, setup-imagemagick-amzn, version-format]
+    needs: [setup-imagemagick, setup-imagemagick-amzn, version-format, unsupported-version]
     runs-on: ubuntu-26.04
     timeout-minutes: 5
 
