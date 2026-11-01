@@ -12,6 +12,23 @@
 
 これで `jksy/setup-imagemagick@v1` を使っているユーザーに最新版が届く。
 
+## PR のラベル
+
+リリースノートは PR のラベルで分類される（`.github/release.yml`、上から最初に一致した分類に入る）。
+変更の種類はファイルからは判別できないので、**PR を作るときに種別ラベルを 1 つ手で付ける**。
+
+| 分類 | ラベル | 付け方 |
+|---|---|---|
+| Breaking Changes | `breaking change` | 手で付ける（major） |
+| New Features | `enhancement` | 手で付ける（minor） |
+| Bug Fixes | `bug` | 手で付ける（patch） |
+| Security | `security` | 手で付ける |
+| Documentation | `documentation` | labeler（`**/*.md`） |
+| Dependencies | `dependencies` | Renovate（action の実行に関わる依存） |
+| CI | `github_actions` | labeler（`.github/**`、`renovate.json`）、Renovate（`.github/` 配下の依存） |
+
+ドキュメントだけ・CI だけの PR は labeler が付けるラベルで足りる。
+
 ## ロールバック
 
 問題が発生した場合は **Update Floating Tag** を再実行し、一つ前のタグを指定する。

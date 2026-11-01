@@ -1,0 +1,12 @@
+# Path-based labels for PRs; .github/release.yml groups release notes by
+# them. Type labels (breaking change, enhancement, bug, security) are added
+# by hand — see RELEASING.md.
+documentation:
+  - changed-files:
+      - any-glob-to-any-file: "**/*.md"
+
+github_actions:
+  - changed-files:
+      - any-glob-to-any-file:
+          - .github/**
+          - renovate.json
