@@ -4,20 +4,22 @@
 
 1. PR を main にマージ
 2. GitHub 上で手動リリースを作成
-   - タグ: `v1.x.x`（例: `v1.2.0`）
+   - タグ: `v2.x.x`（例: `v2.1.0`）
    - **"Generate release notes"** ボタンでリリースノートを自動生成
 3. Actions タブから **Update Floating Tag** を手動実行
-   - `target`: 作成したタグ（例: `v1.2.0`）
-   - `major_version`: `v1`
+   - `target`: 作成したタグ（例: `v2.1.0`）
+   - `major_version`: `v2`
 
-これで `jksy/setup-imagemagick@v1` を使っているユーザーに最新版が届く。
+これで `jksy/setup-imagemagick@v2` を使っているユーザーに最新版が届く。
+
+`v1.x.x` を出すとき（v1 系の修正）は `major_version: v1` を選ぶ。
 
 ## ロールバック
 
 問題が発生した場合は **Update Floating Tag** を再実行し、一つ前のタグを指定する。
 
-- `target`: 戻したいタグ（例: `v1.1.9`）
-- `major_version`: `v1`
+- `target`: 戻したいタグ（例: `v2.0.0`）
+- `major_version`: `v2`
 
 ## バージョニングルール
 
@@ -28,3 +30,5 @@
 | `fix:` | patch（例: 1.1.2 → 1.1.3）|
 | `feat:` | minor（例: 1.1.2 → 1.2.0）|
 | `BREAKING CHANGE:` | major（例: 1.1.2 → 2.0.0）|
+
+メジャーバージョンを上げたときは、`update-floating-tag.yml` の `major_version` の選択肢に新しいメジャー（例: `v3`）を足す。
