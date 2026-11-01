@@ -1,5 +1,5 @@
 name: "setup-imagemagick"
-description: "Install prebuilt ImageMagick from jksy/imagemagick-build release assets"
+description: "Install prebuilt ImageMagick with the installer of jksy/imagemagick-build"
 author: "jksy"
 
 inputs:
@@ -19,13 +19,17 @@ inputs:
     required: false
     default: "true"
   github-token:
-    description: "GitHub token used when downloading release assets"
+    description: "GitHub token used for the GitHub API calls of the installer (raises the rate limit)"
     required: false
-    default: ""
-  fail-if-missing:
-    description: "Fail when release asset is missing"
+    default: "${{ github.token }}"
+  verify-attestation:
+    description: "Verify the build provenance attestation of the release asset before installing it (requires gh)"
     required: false
     default: "true"
+  fail-if-missing:
+    description: "Deprecated and ignored: a missing release asset always fails"
+    required: false
+    default: ""
 
 outputs:
   prefix:
@@ -43,6 +47,9 @@ outputs:
   magick-path:
     description: "Path to magick executable"
     value: "${{ steps.install.outputs.magick-path }}"
+  attestation-verified:
+    description: "Whether the build provenance attestation was verified (true / false)"
+    value: "${{ steps.install.outputs.attestation-verified }}"
 
 runs:
   using: "composite"
@@ -55,6 +62,7 @@ runs:
         INPUT_ADD_TO_PATH: ${{ inputs.add-to-path }}
         INPUT_EXPORT_ENV: ${{ inputs.export-env }}
         INPUT_GITHUB_TOKEN: ${{ inputs.github-token }}
+        INPUT_VERIFY_ATTESTATION: ${{ inputs.verify-attestation }}
         INPUT_FAIL_IF_MISSING: ${{ inputs.fail-if-missing }}
       run: |
         "$GITHUB_ACTION_PATH/install.sh"

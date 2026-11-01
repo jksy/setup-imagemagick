@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
+# Runs the install.sh of jksy/imagemagick-build at the requested release tag,
+# then moves the result to install-prefix and wires it into the job.
 set -euo pipefail
 
+REPO="jksy/imagemagick-build"
 ORIGINAL_PREFIX="/opt/imagemagick"
 
 to_lower() {
@@ -15,64 +18,8 @@ command_exists() {
   command -v "$1" >/dev/null 2>&1
 }
 
-detect_arch() {
-  local runner_os="${RUNNER_OS:-Linux}"
-  if [[ "$runner_os" != "Linux" ]]; then
-    echo "::error::Unsupported RUNNER_OS: $runner_os (Linux only)"
-    exit 1
-  fi
-
-  local machine
-  machine="$(uname -m)"
-  case "$machine" in
-    x86_64|amd64)
-      echo "x86_64"
-      ;;
-    aarch64|arm64)
-      echo "aarch64"
-      ;;
-    *)
-      echo "::error::Unsupported architecture: $machine (x86_64 / aarch64 only)" >&2
-      exit 1
-      ;;
-  esac
-}
-
-detect_os_label() {
-  if [[ -n "${ImageOS:-}" ]]; then
-    case "$ImageOS" in
-      ubuntu22|ubuntu22.04) echo "ubuntu22.04"; return ;;
-      ubuntu24|ubuntu24.04) echo "ubuntu24.04"; return ;;
-      ubuntu26|ubuntu26.04) echo "ubuntu26.04"; return ;;
-    esac
-  fi
-
-  if [[ -f /etc/os-release ]]; then
-    # shellcheck disable=SC1091
-    source /etc/os-release
-    case "${ID:-}" in
-      ubuntu)
-        case "${VERSION_ID:-}" in
-          22.04) echo "ubuntu22.04"; return ;;
-          24.04) echo "ubuntu24.04"; return ;;
-          26.04) echo "ubuntu26.04"; return ;;
-        esac
-        ;;
-      amzn)
-        case "${VERSION_ID:-}" in
-          2023|2027) echo "amzn${VERSION_ID}"; return ;;
-          *) echo "::error::Unsupported Amazon Linux version: ${VERSION_ID} (supported: 2023 / 2027)" >&2; exit 1 ;;
-        esac
-        ;;
-    esac
-  fi
-
-  echo "::error::Unsupported OS. Supported: ubuntu-22.04 / ubuntu-24.04 / ubuntu-26.04 / Amazon Linux 2023 / 2027" >&2
-  exit 1
-}
-
 run_privileged() {
-  if command_exists sudo; then
+  if [[ "$(id -u)" != "0" ]] && command_exists sudo; then
     sudo "$@"
   else
     "$@"
@@ -115,37 +62,10 @@ install_ghostscript_if_missing() {
   fi
 }
 
-# The default build variant is compiled with OpenMP and needs libgomp.so.1 at
-# run time. GitHub-hosted Ubuntu runners and amazonlinux:2023 ship it, but
-# amazonlinux:2027 (and other minimal containers) do not.
-install_openmp_runtime_if_missing() {
-  if ldconfig -p 2>/dev/null | grep -q 'libgomp\.so\.1'; then
-    return
-  fi
-
-  if command_exists apt-get; then
-    echo "::notice::Installing libgomp1 via apt-get (OpenMP runtime)"
-    if ! run_privileged timeout "$APT_HARD_TIMEOUT_SECONDS" apt-get "${APT_OPTS[@]}" update; then
-      echo "::warning::apt-get update failed or timed out; installing from the package lists that were fetched"
-    fi
-    run_privileged timeout "$APT_HARD_TIMEOUT_SECONDS" apt-get "${APT_OPTS[@]}" install -y libgomp1
-  elif command_exists dnf; then
-    echo "::notice::Installing libgomp via dnf (OpenMP runtime)"
-    run_privileged dnf install -y libgomp
-  else
-    echo "::error::libgomp.so.1 (OpenMP runtime) is required, but neither apt-get nor dnf is available" >&2
-    exit 1
-  fi
-
-  if ! ldconfig -p 2>/dev/null | grep -q 'libgomp\.so\.1'; then
-    echo "::error::OpenMP runtime installation completed but libgomp.so.1 was not found" >&2
-    exit 1
-  fi
-}
-
 emit_outputs() {
   local prefix="$1"
   local magick_path="$2"
+  local verified="$3"
   local output_file="${GITHUB_OUTPUT:-}"
 
   if [[ -z "$output_file" ]]; then
@@ -158,18 +78,8 @@ emit_outputs() {
     echo "lib-dir=$prefix/lib"
     echo "pkg-config-path=$prefix/lib/pkgconfig"
     echo "magick-path=$magick_path"
+    echo "attestation-verified=$verified"
   } >>"$output_file"
-}
-
-validate_archive_paths() {
-  local archive="$1"
-  local bad_entries
-  bad_entries="$(tar -tzf "$archive" | grep -E '^/|(^|/)\.\.(/|$)' || true)"
-  if [[ -n "$bad_entries" ]]; then
-    echo "::error::Archive contains unsafe paths"
-    printf '%s\n' "$bad_entries"
-    exit 1
-  fi
 }
 
 append_env_if_requested() {
@@ -187,43 +97,39 @@ append_env_if_requested() {
   fi
 }
 
-download_http_code() {
-  local url="$1"
-  local archive="$2"
-  local code
-
-  # Bound each attempt so a stalled connection cannot hang the job.
-  local curl_opts=(-sS -L --connect-timeout 10 --max-time 300 --retry 3 --retry-delay 2)
-
-  if [[ -n "${INPUT_GITHUB_TOKEN:-}" ]]; then
-    if [[ "${INPUT_GITHUB_TOKEN:-}" == *$'\n'* || "${INPUT_GITHUB_TOKEN:-}" == *$'\r'* ]]; then
-      echo "::error::github-token contains invalid newline characters" >&2
-      exit 1
-    fi
-    code="$(curl "${curl_opts[@]}" -H "Authorization: Bearer ${INPUT_GITHUB_TOKEN:-}" -o "$archive" -w "%{http_code}" "$url" || true)"
-  else
-    code="$(curl "${curl_opts[@]}" -o "$archive" -w "%{http_code}" "$url" || true)"
-  fi
-
-  printf '%s' "$code"
+sed_escape() {
+  local s="$1"
+  s="${s//\\/\\\\}"
+  s="${s//&/\\&}"
+  s="${s//#/\\#}"
+  printf '%s' "$s"
 }
 
+# The installer leaves the .pc files pointing at the staging directory; older
+# installers also leave the build prefix /opt/imagemagick outside prefix=.
+# A placeholder keeps an install-prefix that contains /opt/imagemagick from
+# being rewritten twice.
 rewrite_pkgconfig_prefix() {
   local prefix="$1"
+  local staged="$2"
   local pkg_dir="$prefix/lib/pkgconfig"
+  local placeholder="@SETUP_IMAGEMAGICK_PREFIX@"
 
   if [[ ! -d "$pkg_dir" ]]; then
     return
   fi
 
-  local escaped
-  escaped="$prefix"
-  escaped="${escaped//\\/\\\\}"
-  escaped="${escaped//&/\\&}"
-  escaped="${escaped//#/\\#}"
+  local staged_re original_re dest
+  staged_re="$(sed_escape "$staged")"
+  original_re="$(sed_escape "$ORIGINAL_PREFIX")"
+  dest="$(sed_escape "$prefix")"
 
   while IFS= read -r -d '' pc_file; do
-    sed -i "s#$ORIGINAL_PREFIX#$escaped#g" "$pc_file"
+    sed -i \
+      -e "s#$staged_re#$placeholder#g" \
+      -e "s#$original_re#$placeholder#g" \
+      -e "s#$placeholder#$dest#g" \
+      "$pc_file"
   done < <(find "$pkg_dir" -type f -name '*.pc' -print0)
 }
 
@@ -260,107 +166,103 @@ DEFAULT_PREFIX="${RUNNER_TEMP:-/tmp}/imagemagick"
 INSTALL_PREFIX="${INPUT_INSTALL_PREFIX:-$DEFAULT_PREFIX}"
 ADD_TO_PATH="${INPUT_ADD_TO_PATH:-true}"
 EXPORT_ENV="${INPUT_EXPORT_ENV:-true}"
-FAIL_IF_MISSING="${INPUT_FAIL_IF_MISSING:-true}"
+VERIFY_ATTESTATION="${INPUT_VERIFY_ATTESTATION:-true}"
 
-ARCH_LABEL="$(detect_arch)"
-OS_LABEL="$(detect_os_label)"
-BASE_URL="${IMAGEMAGICK_RELEASE_BASE_URL:-https://github.com/jksy/imagemagick-build/releases/download}"
+if [[ -n "${INPUT_FAIL_IF_MISSING:-}" ]]; then
+  echo "::warning::fail-if-missing is deprecated and ignored; a missing release asset always fails. It will be removed in a future release."
+fi
 
-# Snapshot tags have the form X.Y.Z-N-YYYYMMDD; the tarball uses only X.Y.Z-N
-_version_bare="${VERSION#v}"
-if [[ "$_version_bare" =~ ^([0-9]+\.[0-9]+\.[0-9]+-[0-9]+)-[0-9]{8}(-[0-9]+)?$ ]]; then
+if [[ "${INPUT_GITHUB_TOKEN:-}" == *$'\n'* || "${INPUT_GITHUB_TOKEN:-}" == *$'\r'* ]]; then
+  echo "::error::github-token contains invalid newline characters" >&2
+  exit 1
+fi
+
+TAG="v${VERSION#v}"
+# Snapshot tags have the form X.Y.Z-N-YYYYMMDD; the installed directory uses only X.Y.Z-N
+if [[ "${TAG#v}" =~ ^([0-9]+\.[0-9]+\.[0-9]+-[0-9]+)(-[0-9]{8}(-[0-9]+)?)?$ ]]; then
   ASSET_VERSION="${BASH_REMATCH[1]}"
 else
-  ASSET_VERSION="$_version_bare"
-fi
-ASSET_NAME="imagemagick-${ASSET_VERSION}-${OS_LABEL}-${ARCH_LABEL}.tar.gz"
-
-if [[ "$VERSION" == v* ]]; then
-  TAG_CANDIDATES=("$VERSION" "${VERSION#v}")
-else
-  TAG_CANDIDATES=("v$VERSION" "$VERSION")
+  echo "::error::Unsupported version format: $VERSION (expected X.Y.Z-N or X.Y.Z-N-YYYYMMDD)" >&2
+  exit 1
 fi
 
-archive_path="$(mktemp -t imagemagick-asset-XXXXXX.tar.gz)"
-extract_dir=""
+work_dir="$(mktemp -d -t setup-imagemagick-XXXXXX)"
 cleanup() {
-  rm -f "$archive_path"
-  if [[ -n "$extract_dir" ]]; then
-    rm -rf "$extract_dir"
-  fi
+  # The installer may run as root, so the staged files can be root-owned.
+  rm -rf "$work_dir" 2>/dev/null || run_privileged rm -rf "$work_dir"
 }
 trap cleanup EXIT
 
-selected_url=""
-selected_asset_name=""
-asset_found="false"
+installer="$work_dir/install.sh"
+# refs/tags/ keeps a branch with the same name from being picked instead.
+installer_url="https://raw.githubusercontent.com/${REPO}/refs/tags/${TAG}/install.sh"
+echo "::notice::Fetching installer from $installer_url"
+http_code="$(curl -sS -L --connect-timeout 10 --max-time 60 --retry 3 --retry-delay 2 \
+  -o "$installer" -w '%{http_code}' "$installer_url" || true)"
+if [[ "$http_code" == "404" ]]; then
+  echo "::error::$REPO has no release tag $TAG, or the tag has no install.sh. Use a newer version, or jksy/setup-imagemagick@v1." >&2
+  exit 1
+elif [[ "$http_code" != "200" ]]; then
+  echo "::error::Failed to fetch $installer_url (HTTP ${http_code:-none})" >&2
+  exit 1
+fi
 
-for tag in "${TAG_CANDIDATES[@]}"; do
-  url="$BASE_URL/$tag/$ASSET_NAME"
-  echo "::notice::Trying $url"
-  http_code="$(download_http_code "$url" "$archive_path")"
-
-  if [[ "$http_code" == "200" ]]; then
-    selected_url="$url"
-    selected_asset_name="$ASSET_NAME"
-    asset_found="true"
-    break
-  fi
-
-  if [[ "$http_code" != "404" ]]; then
-    echo "::error::Download failed for $url (HTTP $http_code)"
+# Installers from older tags ignore these variables and would silently install
+# the latest release into /opt.
+for required in IMAGEMAGICK_VERSION IMAGEMAGICK_INSTALL_BASE; do
+  if ! grep -q "$required" "$installer"; then
+    echo "::error::The installer of $TAG does not support $required. Use a newer version, or jksy/setup-imagemagick@v1." >&2
     exit 1
   fi
 done
 
-if [[ "$asset_found" != "true" ]]; then
-  if is_true "$FAIL_IF_MISSING"; then
-    echo "::error::Release asset not found: $ASSET_NAME"
-    exit 1
-  fi
-
-  echo "::warning::Release asset not found, skipping installation"
-  emit_outputs "$INSTALL_PREFIX" ""
-  exit 0
-fi
-
-echo "::notice::Downloading asset from $selected_url"
-echo "::notice::Selected asset: $selected_asset_name"
-
-validate_archive_paths "$archive_path"
-extract_dir="$(mktemp -d -t imagemagick-extract-XXXXXX)"
-tar --no-same-owner --no-same-permissions -xzf "$archive_path" -C "$extract_dir"
-
-source_root=""
-if [[ -x "$extract_dir/bin/magick" ]]; then
-  source_root="$extract_dir"
-else
-  magick_in_archive="$(find "$extract_dir" -type f -path '*/bin/magick' | head -n 1 || true)"
-  if [[ -n "$magick_in_archive" ]]; then
-    source_root="$(dirname "$(dirname "$magick_in_archive")")"
+verify_env="0"
+verified="false"
+if is_true "$VERIFY_ATTESTATION"; then
+  if grep -q "IMAGEMAGICK_VERIFY_ATTESTATION" "$installer"; then
+    if ! command_exists gh; then
+      echo "::error::verify-attestation requires the gh CLI. Install gh, or set verify-attestation: false." >&2
+      exit 1
+    fi
+    verify_env="1"
+    verified="true"
+  else
+    echo "::warning::The installer of $TAG cannot verify the build provenance attestation; installing without verification. Use a newer version to verify it."
   fi
 fi
 
-if [[ -z "$source_root" ]]; then
-  echo "::error::magick binary not found in archive"
+stage_base="$work_dir/stage"
+mkdir -p "$stage_base"
+installer_env=(
+  "IMAGEMAGICK_VERSION=$TAG"
+  "IMAGEMAGICK_INSTALL_BASE=$stage_base"
+  "IMAGEMAGICK_VERIFY_ATTESTATION=$verify_env"
+  "GITHUB_TOKEN=${INPUT_GITHUB_TOKEN:-}"
+)
+# Root lets the installer add missing runtime packages (libgomp, jq, ...).
+run_privileged env "${installer_env[@]}" bash "$installer"
+
+staged="$stage_base/imagemagick/$ASSET_VERSION"
+if [[ ! -x "$staged/bin/magick" ]]; then
+  echo "::error::The installer did not install ImageMagick $ASSET_VERSION (expected $staged/bin/magick)" >&2
+  ls -la "$stage_base/imagemagick" >&2 || true
   exit 1
 fi
 
 mkdir -p "$INSTALL_PREFIX"
-tar --no-same-owner --no-same-permissions -C "$source_root" -cf - . | tar --no-same-owner --no-same-permissions -C "$INSTALL_PREFIX" -xf -
+tar -C "$staged" -cf - . | tar --no-same-owner --no-same-permissions -C "$INSTALL_PREFIX" -xf -
 
 MAGICK_PATH="$INSTALL_PREFIX/bin/magick"
 if [[ ! -x "$MAGICK_PATH" ]]; then
-  echo "::error::magick binary not found after extraction: $MAGICK_PATH"
+  echo "::error::magick binary not found after installation: $MAGICK_PATH" >&2
   exit 1
 fi
 
-rewrite_pkgconfig_prefix "$INSTALL_PREFIX"
+rewrite_pkgconfig_prefix "$INSTALL_PREFIX" "$staged"
 log_rpath_related_info "$INSTALL_PREFIX/lib"
 install_ghostscript_if_missing
-install_openmp_runtime_if_missing
 append_env_if_requested "$INSTALL_PREFIX" "$ADD_TO_PATH" "$EXPORT_ENV"
-emit_outputs "$INSTALL_PREFIX" "$MAGICK_PATH"
+emit_outputs "$INSTALL_PREFIX" "$MAGICK_PATH" "$verified"
 
 LD_LIBRARY_PATH="$INSTALL_PREFIX/lib:${LD_LIBRARY_PATH:-}" "$MAGICK_PATH" -version
 
