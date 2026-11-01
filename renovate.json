@@ -6,7 +6,13 @@
   "vulnerabilityAlerts": {
     "enabled": true
   },
+  "labels": ["dependencies"],
   "packageRules": [
+    {
+      "description": "Everything under .github/ (workflow actions, test runners and versions, lint/scan tools) is CI-only and never reaches users of the action; label it so release notes list it under CI rather than Dependencies (.github/release.yml).",
+      "matchFileNames": [".github/**"],
+      "labels": ["github_actions"]
+    },
     {
       "description": "The amazonlinux container tags in test.yml are the supported install targets (they must match the OS labels published by jksy/imagemagick-build), not dependencies to bump.",
       "matchDatasources": ["docker"],
