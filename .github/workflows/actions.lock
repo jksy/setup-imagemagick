@@ -13,6 +13,7 @@ workflows:
         - 'actions/checkout@v7.0.1'
     '.github/workflows/test.yml':
         - 'actions/checkout@v7.0.1'
+        - 'jksy/apt-install-unstuck@v0.3.0'
         - 'ruby/setup-ruby@v1.336.0'
     '.github/workflows/update-floating-tag.yml':
         - 'actions/checkout@v7.0.1'
@@ -29,6 +30,11 @@ dependencies:
         commit: 'sha1-bf12e9b00b37c5c0ca2b87b79b2daf7891dbda13'
         owner_id: 44036562
         repo_id: 177139928
+    'jksy/apt-install-unstuck@v0.3.0':
+        ref: 'v0.3.0'
+        commit: 'sha1-a6918340f1312affe9b26969c18051f66eea5783'
+        owner_id: 143718
+        repo_id: 1435926565
     'ruby/setup-ruby@v1.336.0':
         ref: 'v1.336.0'
         commit: 'sha1-de492cf36cbab201753d720ce4f4e336cd688c94'
