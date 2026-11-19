@@ -14,7 +14,7 @@ workflows:
     '.github/workflows/test.yml':
         - 'actions/checkout@v7.0.1'
         - 'jksy/apt-install-unstuck@v0.4.0'
-        - 'ruby/setup-ruby@v1.341.0'
+        - 'ruby/setup-ruby@v1.342.0'
     '.github/workflows/update-floating-tag.yml':
         - 'actions/checkout@v7.0.1'
     '.github/workflows/verify-lockfile.yml':
@@ -35,8 +35,8 @@ dependencies:
         commit: 'sha1-29c89e42dd3076337d1a0d5cfb7f762b97e67178'
         owner_id: 143718
         repo_id: 1435926565
-    'ruby/setup-ruby@v1.341.0':
-        ref: 'v1.341.0'
-        commit: 'sha1-20eb24b0d509e2b9ed9b6d42ddfeb992915e0564'
+    'ruby/setup-ruby@v1.342.0':
+        ref: 'v1.342.0'
+        commit: 'sha1-f9c4492e86def3e644ab32a0ef185eda5b0c20d0'
         owner_id: 210414
         repo_id: 231208785
