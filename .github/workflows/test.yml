@@ -23,7 +23,7 @@ jobs:
       # CI only: the azure.archive.ubuntu.com mirror sometimes stalls and the
       # Ghostscript install hits the apt timeout of install.sh. Users' apt is
       # left alone, so this is not part of action.yml.
-      - uses: jksy/apt-install-unstuck@v0.3.0
+      - uses: jksy/apt-install-unstuck@v0.4.0
 
       - name: Resolve ImageMagick build version
         id: version
@@ -274,7 +274,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
 
-      - uses: jksy/apt-install-unstuck@v0.3.0
+      - uses: jksy/apt-install-unstuck@v0.4.0
 
       - name: Setup ImageMagick
         uses: ./
